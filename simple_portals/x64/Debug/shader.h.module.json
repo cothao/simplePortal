@@ -1,0 +1,22 @@
+{
+    "version": 1,
+    "revision": 0,
+    "rules": [
+        {
+            "primary-output": "x64\\Debug\\shader.h.obj",
+            "outputs": [
+                "C:\\Users\\colli\\source\\repos\\simple_portals\\simple_portals\\x64\\Debug\\vc143.pdb",
+                "x64\\Debug\\",
+                "C:\\Users\\colli\\source\\repos\\simple_portals\\simple_portals\\x64\\Debug\\shader.h.ifc"
+            ],
+            "provides": [
+                {
+                    "logical-name": "shader.h",
+                    "source-path": "c:\\users\\colli\\source\\repos\\simple_portals\\simple_portals\\shader.h",
+                    "lookup-method": "absolute"
+                }
+            ],
+            "requires": []
+        }
+    ]
+}
