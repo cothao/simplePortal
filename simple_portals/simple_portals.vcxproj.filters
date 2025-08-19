@@ -114,8 +114,8 @@
   <ItemGroup>
     <None Include="assimp-vc140-mt.dll" />
     <None Include="freetype.dll" />
-    <None Include="shaders\camera_shader.vert" />
-    <None Include="shaders\camera_shader.frag" />
+    <None Include="shaders\shader.vert" />
+    <None Include="shaders\shader.frag" />
     <None Include="shaders\text.frag" />
     <None Include="shaders\text.vert" />
     <None Include="shaders\portal.frag" />

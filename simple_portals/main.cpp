@@ -14,10 +14,16 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void processInput(GLFWwindow* window);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void configurePortals(glm::vec3 portalPosition, glm::vec3 portalViewPosition, Shader& shader, unsigned int& texture, unsigned int& FBO);
+void configurePortalFBO(unsigned int &FBO, unsigned int &RBO, unsigned int &texture);
 
+glm::mat4 model = glm::mat4(1.0f);
+glm::mat4 view = glm::mat4(1.0f);
+glm::mat4 projection = glm::mat4(1.);
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 10.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+glm::vec3 portal1Position = glm::vec3(0., 1., 0.);
 glm::vec3 portal2Position = glm::vec3(-5., 1., 20.);
 float deltaTime = 0.0f;	// Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
@@ -26,6 +32,7 @@ float yaw = -90.0f;
 float pitch = 0.0f;
 bool firstMouse = true;
 float fov = 10.f;
+unsigned int p1FBO, p1RBO, p2FBO, p2RBO, portal1Texture, portal2Texture, smileyTexture, containerTexture;
 
 int main() {
 
@@ -59,8 +66,8 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
 
-    std::shared_ptr<Shader> shader = std::shared_ptr<Shader>(new Shader("./shaders/camera_shader.vert", "./shaders/camera_shader.frag", nullptr));
-    std::shared_ptr<Shader> portalShader = std::shared_ptr<Shader>(new Shader("./shaders/camera_shader.vert", "./shaders/portal.frag", nullptr));
+    Shader shader = Shader("./shaders/shader.vert", "./shaders/shader.frag", nullptr);
+    Shader portalShader = Shader("./shaders/shader.vert", "./shaders/portal.frag", nullptr);
 
     glm::vec3 cubePositions[] = {
     glm::vec3(0.0f,  0.0f,  0.0f),
@@ -157,32 +164,9 @@ int main() {
       *                                                      
     
     */
-    unsigned int FBO, RBO, portalTexture;
-	glGenTextures(1, &portalTexture);
-	glBindTexture(GL_TEXTURE_2D, portalTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 800, 600, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glBindTexture(GL_TEXTURE_2D, 0);
-    
-    glGenFramebuffers(1, &FBO);
-	glGenRenderbuffers(1, &RBO);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, RBO);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 800, 600);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, RBO);
-    
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 800, 600, 0,
-        GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL
-    );
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, portalTexture, 0);
+    configurePortalFBO(p1FBO, p1RBO, portal1Texture);
+    configurePortalFBO(p2FBO, p2RBO, portal2Texture);
 
     /*
      *  _____ _____  _______ _   _ ___ ___ ___
@@ -192,12 +176,10 @@ int main() {
      *
      */
 
-    unsigned int texture1, texture2;
-
-    glGenTextures(1, &texture1);
+    glGenTextures(1, &containerTexture);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture1);
+    glBindTexture(GL_TEXTURE_2D, containerTexture);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -221,10 +203,10 @@ int main() {
 
     stbi_set_flip_vertically_on_load(true);
 
-    glGenTextures(1, &texture2);
+    glGenTextures(1, &smileyTexture);
 
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, texture2);
+    glBindTexture(GL_TEXTURE_2D, smileyTexture);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -246,82 +228,25 @@ int main() {
 
     stbi_image_free(data);
 
-    shader->Use();
+    shader.Use();
 
-    shader->SetInt("texture1", 0);
+    shader.SetInt("containerTexture", 0);
     
-    portalShader->Use();
-    portalShader->SetInt("texture1", 0);
+    portalShader.Use();
+    portalShader.SetInt("containerTexture", 0);
 
     while (!glfwWindowShouldClose(window))
     {
 
         processInput(window);
 
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(1.f, 0.3f, 0.3f, 1.0f);
-        glEnable(GL_DEPTH_TEST);
+		configurePortals(portal1Position, portal2Position,shader, portal1Texture, p1FBO);
+        configurePortals(portal2Position, portal1Position, shader, portal2Texture, p2FBO);
 
-        glActiveTexture(GL_TEXTURE0);
-
-        glBindTexture(GL_TEXTURE_2D, texture1);
-
-        glm::mat4 model = glm::mat4(1.0f);
-
-        glm::mat4 view = glm::mat4(1.0f);
-        // note that we're translating the scene in the reverse direction of where we want to move
-        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-
-        glm::mat4 projection;
-        projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
-
-        /*
-         *   ___   _   __  __ ___ ___    _   
-         *  / __| /_\ |  \/  | __| _ \  /_\  
-         * | (__ / _ \| |\/| | _||   / / _ \ 
-         *  \___/_/ \_\_|  |_|___|_|_\/_/ \_\
-         *                                   
-         */
-        
-
-        view = glm::lookAt(portal2Position, portal2Position + cameraFront, cameraUp);
-
-        shader->Use();
-
-        shader->SetMat4("view", view);
-        shader->SetMat4("projection", projection);
-
-        glBindVertexArray(VAO);
-
-        model = glm::mat4(1.);
-        model = glm::translate(model, glm::vec3(0., 1., 0.));
-		shader->SetMat4("model", model);
-
-		Object::Quad();
-
-
-        model = glm::mat4(1.);
-        shader->SetMat4("model", model);
-		Object::Plane();
-
-        model = glm::translate(model, portal2Position);
-
-        shader->SetMat4("model", model);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture2);
-        Object::Quad();
-
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
@@ -344,40 +269,41 @@ int main() {
 
         view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
-        portalShader->Use();
+        portalShader.Use();
 
-        portalShader->SetMat4("view", view);
-        portalShader->SetMat4("projection", projection);
+        portalShader.SetMat4("view", view);
+        portalShader.SetMat4("projection", projection);
 
         glBindVertexArray(VAO);
 
-
-
         model = glm::mat4(1.);
-        model = glm::translate(model, glm::vec3(0., 1., 0.));
+        model = glm::translate(model, portal1Position);
 
-        shader->SetMat4("model", model);
-        glBindTexture(GL_TEXTURE_2D, portalTexture);
+        shader.SetMat4("model", model);
         glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, portal1Texture);
+        shader.SetBool("plane", false);
 
         Object::Quad();
 
-        glBindTexture(GL_TEXTURE_2D, texture1);
+        glBindTexture(GL_TEXTURE_2D, containerTexture);
         glActiveTexture(GL_TEXTURE0);
 
         model = glm::mat4(1.);
-        shader->SetMat4("model", model);
+        shader.SetMat4("model", model);
+        shader.SetBool("plane", true);
 
         Object::Plane();
 
         model = glm::translate(model, portal2Position);
 
-        shader->SetMat4("model", model);
+        shader.SetMat4("model", model);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture2);
+        glBindTexture(GL_TEXTURE_2D, portal2Texture);
+
+        shader.SetBool("plane", false);
 
         Object::Quad();
-
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -451,4 +377,89 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
         fov = 1.0f;
     if (fov > 45.0f)
         fov = 45.0f;
+}
+
+void configurePortals(glm::vec3 portalPosition, glm::vec3 portalViewPosition, Shader& shader, unsigned int& texture, unsigned int& FBO)
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glEnable(GL_DEPTH_TEST);
+
+    glActiveTexture(GL_TEXTURE0);
+
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    view = glm::mat4(1.);
+
+    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+
+    projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
+
+    /*
+     *   ___   _   __  __ ___ ___    _
+     *  / __| /_\ |  \/  | __| _ \  /_\
+     * | (__ / _ \| |\/| | _||   / / _ \
+     *  \___/_/ \_\_|  |_|___|_|_\/_/ \_\
+     *
+     */
+
+
+    view = glm::lookAt(portalViewPosition, portalViewPosition + cameraFront, cameraUp);
+
+    shader.Use();
+
+    shader.SetMat4("view", view);
+    shader.SetMat4("projection", projection);
+
+    glBindTexture(GL_TEXTURE_2D, containerTexture);
+
+    model = glm::mat4(1.);
+    shader.SetMat4("model", model);
+
+    shader.SetBool("plane", true);
+    Object::Plane();
+
+    model = glm::mat4(1.);
+    model = glm::translate(model, portalPosition);
+    shader.SetMat4("model", model);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    shader.SetBool("plane", false);
+    Object::Quad();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+}
+
+void configurePortalFBO(unsigned int &FBO, unsigned int &RBO, unsigned int &texture)
+{
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 800, 600, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glGenFramebuffers(1, &FBO);
+    glGenRenderbuffers(1, &RBO);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+    glBindRenderbuffer(GL_RENDERBUFFER, RBO);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 800, 600);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, RBO);
+
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 800, 600, 0,
+        GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL
+    );
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
 }

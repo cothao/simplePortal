@@ -1,6 +1,13 @@
 ﻿  Scanning sources for module dependencies...
-  object.cpp
+  main.cpp
 C:\Users\colli\source\repos\simple_portals\simple_portals\objects\object.h(11,3): warning C4091: 'extern ': ignored on left of 'Object::VertexObject' when no variable is declared
-  (compiling source file 'objects/object.cpp')
+  (compiling source file 'main.cpp')
   
+C:\Users\colli\source\repos\simple_portals\simple_portals\main.cpp(243,28): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\colli\source\repos\simple_portals\simple_portals\main.cpp(344,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+C:\Users\colli\source\repos\simple_portals\simple_portals\main.cpp(345,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+C:\Users\colli\source\repos\simple_portals\simple_portals\main.cpp(349,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\colli\source\repos\simple_portals\simple_portals\main.cpp(350,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\colli\source\repos\simple_portals\simple_portals\main.cpp(351,13): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+C:\Users\colli\source\repos\simple_portals\simple_portals\main.cpp(352,13): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
   simple_portals.vcxproj -> C:\Users\colli\source\repos\simple_portals\x64\Debug\simple_portals.exe
